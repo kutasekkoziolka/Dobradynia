@@ -512,6 +512,16 @@ build_kernel() {
     log_step "make $defconfig..."
     make "${MAKE_OPTS[@]}" "$defconfig" 2>&1 | sed 's/^/       /'
 
+    # KernelSU requires CONFIG_KSU=y — the defconfig may not have it,
+    # so we force-enable it via scripts/config then run olddefconfig
+    # to let Kconfig resolve any dependencies automatically.
+    if [[ "$BUILD_TYPE" == "KSU" ]]; then
+        log_step "Enabling CONFIG_KSU in .config..."
+        "$SRC_DIR/scripts/config" --file "$OUT_DIR/.config" -e CONFIG_KSU
+        make "${MAKE_OPTS[@]}" olddefconfig 2>&1 | sed 's/^/       /'
+        log_ok "CONFIG_KSU=y — confirmed"
+    fi
+
     log_step "make Image..."
     make "${MAKE_OPTS[@]}" 2>&1 | sed 's/^/       /'
 
