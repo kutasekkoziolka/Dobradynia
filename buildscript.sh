@@ -568,9 +568,8 @@ stage_artifacts() {
         "$out/ZIP/images"
 
     cp "$OUT_DIR/arch/arm64/boot/Image"                      "$out/kernel"
-    cp "$OUT_DIR/arch/arm64/boot/dtbo.img"                   "$out/$BUILD_TYPE/dtbo.img"
     cp "$OUT_DIR/arch/arm64/boot/dts/vendor/qcom/yupik.dtb" "$out/dtb"
-    log_ok "Copied → kernel, dtbo.img, dtb"
+    log_ok "Copied → kernel, dtb"
 
     echo "# Dummy file; update-binary is a shell script." \
         > "$out/ZIP/META-INF/com/google/android/updater-script"
@@ -615,10 +614,6 @@ set_progress 0.2
 ui_print "→ Flashing boot.img..."
 write_image "$TMPDIR/boot.img" "/dev/block/bootdevice/by-name/boot"
 set_progress 0.4
-
-ui_print "→ Flashing dtbo.img..."
-write_image "$TMPDIR/dtbo.img" "/dev/block/bootdevice/by-name/dtbo"
-set_progress 0.6
 
 ui_print "→ Flashing vendor_boot.img..."
 write_image "$TMPDIR/vendor_boot.img" "/dev/block/bootdevice/by-name/vendor_boot"
@@ -743,7 +738,7 @@ gen_zip() {
 
     wget -q "https://raw.githubusercontent.com/OmarAlsmehan/AnyKernel3/refs/heads/master/banner" \
         -O "$zip_dir/banner"
-    cp -a "$src/boot.img" "$src/dtbo.img" "$src/vendor_boot.img" "$zip_dir/images/"
+    cp -a "$src/boot.img" "$src/vendor_boot.img" "$zip_dir/images/"
 
     local ksu_ver=""
     [[ "$BUILD_TYPE" == "KSU" ]] && \
