@@ -155,7 +155,7 @@ init_vars() {
     BUILD_CC="$SDLLVM_BIN/clang"
     BUILD_CROSS_COMPILE="$GNU_BIN/aarch64-none-linux-gnu-"
 
-    export PATH="$SDLLVM_BIN:$GNU_BIN:$PATH"
+    export PATH="$SDLLVM_BIN:$GNU_BIN:$TC_DIR:$PATH"
     export LD_LIBRARY_PATH="$SDLLVM_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     # Shared make flags — used by build_kernel() and build_modules()
