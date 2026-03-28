@@ -1,0 +1,340 @@
+name: 🔥 NovaKernel — Build
+
+# ──────────────────────────────────────────────────────────────────
+#  Inputs
+# ──────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+    inputs:
+
+      variant:
+        description: "Target device"
+        required: true
+        type: choice
+        options: [all, a73xq, a52sxq, m52xq]
+
+      kernelsu:
+        description: "Enable KernelSU?"
+        required: true
+        type: boolean
+        default: false
+
+      ksu_repo:
+        description: "KernelSU repo URL  (optional override)"
+        required: false
+        default: ""
+
+      ksu_branch:
+        description: "KernelSU branch"
+        required: false
+        type: choice
+        default: "legacy-susfs-v2"
+        options: [legacy, main, next, susfs-main, susfs-next, legacy-susfs-v2, custom]
+
+      ksu_branch_custom:
+        description: "Custom branch name  (only when ksu_branch = custom)"
+        required: false
+        default: ""
+
+      hook_type:
+        description: "KernelSU hook type  (ignored if kernelsu = false)"
+        required: false
+        type: choice
+        default: "kprobes"
+        options: [kprobes, scope-min-1.6, rksu, syscall, inline]
+
+      backport:
+        description: "Apply backport patches?  (ignored if kernelsu = false)"
+        required: false
+        type: boolean
+        default: false
+
+      debug:
+        description: "SELinux permissive  (debug build)"
+        required: false
+        type: boolean
+        default: false
+
+      upload_to_telegram:
+        description: "Upload to Telegram?"
+        required: true
+        type: boolean
+        default: true
+
+      release_type:
+        description: "Release type"
+        required: true
+        type: choice
+        default: "beta"
+        options: [stable, beta]
+
+      changelog:
+        description: "Changelog / build notes"
+        required: false
+        default: "No changelog provided"
+
+concurrency:
+  group: nova-${{ github.event.inputs.variant }}-${{ github.run_number }}
+  cancel-in-progress: true
+
+
+jobs:
+
+# ══════════════════════════════════════════════════════════════════
+#  1 · SETUP  —  Read versions from buildscript, build device matrix
+# ══════════════════════════════════════════════════════════════════
+  setup:
+    name: "⚙️ Setup"
+    runs-on: ubuntu-24.04
+
+    outputs:
+      matrix:     ${{ steps.config.outputs.matrix }}
+      sdllvm_ver: ${{ steps.config.outputs.sdllvm_ver }}
+      gnu_name:   ${{ steps.config.outputs.gnu_name }}
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: ⚙️ Resolve matrix & toolchain versions
+        id: config
+        run: |
+          # Build matrix
+          case "${{ inputs.variant }}" in
+            all)    echo 'matrix=["a73xq","a52sxq","m52xq"]' >> "$GITHUB_OUTPUT" ;;
+            a73xq)  echo 'matrix=["a73xq"]'                  >> "$GITHUB_OUTPUT" ;;
+            a52sxq) echo 'matrix=["a52sxq"]'                 >> "$GITHUB_OUTPUT" ;;
+            m52xq)  echo 'matrix=["m52xq"]'                  >> "$GITHUB_OUTPUT" ;;
+          esac
+
+          # Read toolchain versions directly from buildscript.sh (single source of truth)
+          echo "sdllvm_ver=$(grep -oP 'SDLLVM_VER="\K[^"]+' buildscript.sh)" >> "$GITHUB_OUTPUT"
+          echo "gnu_name=$(grep -oP 'GNU_NAME="\K[^"]+'     buildscript.sh)" >> "$GITHUB_OUTPUT"
+
+
+# ══════════════════════════════════════════════════════════════════
+#  2 · TOOLCHAIN  —  Download & cache Snapdragon LLVM + ARM GNU
+# ══════════════════════════════════════════════════════════════════
+  toolchain:
+    name: "🧰 Toolchain"
+    needs: setup
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: 📥 Sparse checkout  (buildscript only)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            buildscript.sh
+          sparse-checkout-cone-mode: false
+
+      - name: 📂 Cache — Snapdragon LLVM ${{ needs.setup.outputs.sdllvm_ver }}
+        id: cache-llvm
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/llvm-arm-toolchain-ship
+          key:  sdllvm-${{ runner.os }}-${{ needs.setup.outputs.sdllvm_ver }}
+
+      - name: 📂 Cache — ARM GNU Toolchain
+        id: cache-gnu
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/gcc
+          key:  gnu-aarch64-${{ runner.os }}-${{ needs.setup.outputs.gnu_name }}
+
+      - name: ⬇️ Download toolchains  (cache miss only)
+        if: |
+          steps.cache-llvm.outputs.cache-hit != 'true' ||
+          steps.cache-gnu.outputs.cache-hit  != 'true'
+        run: |
+          chmod +x buildscript.sh
+          ./buildscript.sh --phase compiler
+
+
+# ══════════════════════════════════════════════════════════════════
+#  3 · IMAGES  —  Download & cache all three stock kernel images
+# ══════════════════════════════════════════════════════════════════
+  images:
+    name: "📱 Stock Images"
+    needs: setup
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: 📥 Sparse checkout  (buildscript only)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            buildscript.sh
+          sparse-checkout-cone-mode: false
+
+      - name: 📦 Install lz4
+        run: sudo apt-get install -y --no-install-recommends lz4
+
+      - name: 📂 Cache — Stock images  (A73 · A52S · M52)
+        id: cache-images
+        uses: actions/cache@v4
+        with:
+          path: ~/toolchains/images
+          key:  stock-images-a73-a52s-m52-v1
+
+      - name: ⬇️ Download stock images  (cache miss only)
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: |
+          chmod +x buildscript.sh
+          ./buildscript.sh --phase images
+
+
+# ══════════════════════════════════════════════════════════════════
+#  4 · BUILD  —  Compile kernel, package ZIP, upload & notify
+# ══════════════════════════════════════════════════════════════════
+  build:
+    name: "🔨 Build — ${{ matrix.device }}"
+    needs: [setup, toolchain, images]
+    runs-on: ubuntu-24.04
+
+    strategy:
+      matrix:
+        device: ${{ fromJSON(needs.setup.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+
+      # ── Source & environment ─────────────────────────────────────
+      - name: 📥 Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 📦 Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            git curl wget unzip tar lz4 zip patch \
+            bc bison flex libssl-dev libelf-dev \
+            python3 cpio rsync make gcc g++ binutils
+
+      - name: 💾 Setup swap  (10 GB)
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      # ── Restore caches ───────────────────────────────────────────
+      - name: 📂 Restore — Snapdragon LLVM
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/toolchains/llvm-arm-toolchain-ship
+          key:  sdllvm-${{ runner.os }}-${{ needs.setup.outputs.sdllvm_ver }}
+          fail-on-cache-miss: true
+
+      - name: 📂 Restore — ARM GNU Toolchain
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/toolchains/gcc
+          key:  gnu-aarch64-${{ runner.os }}-${{ needs.setup.outputs.gnu_name }}
+          fail-on-cache-miss: true
+
+      - name: 📂 Restore — Stock images
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/toolchains/images
+          key:  stock-images-a73-a52s-m52-v1
+          fail-on-cache-miss: true
+
+      # ── KernelSU setup & patches ─────────────────────────────────
+      - name: ⚡ KernelSU setup & patches
+        if: fromJSON(inputs.kernelsu) == true
+        timeout-minutes: 15
+        env:
+          NK_VARIANT:    ${{ matrix.device }}
+          NK_KSU:        "true"
+          NK_KSU_REPO:   ${{ inputs.ksu_repo }}
+          NK_KSU_BRANCH: ${{ inputs.ksu_branch == 'custom' && inputs.ksu_branch_custom || inputs.ksu_branch }}
+          NK_HOOK_TYPE:  ${{ inputs.hook_type }}
+          NK_BACKPORT:   ${{ inputs.backport }}
+        run: |
+          chmod +x buildscript.sh
+          ./buildscript.sh --phase ksu
+
+      # ── Kernel compilation ───────────────────────────────────────
+      - name: 🔨 Build kernel
+        timeout-minutes: 60
+        env:
+          NK_VARIANT:    ${{ matrix.device }}
+          NK_KSU:        ${{ inputs.kernelsu }}
+          NK_KSU_BRANCH: ${{ inputs.ksu_branch == 'custom' && inputs.ksu_branch_custom || inputs.ksu_branch }}
+          NK_HOOK_TYPE:  ${{ inputs.hook_type }}
+          NK_BACKPORT:   ${{ inputs.backport }}
+          DEBUG:         ${{ inputs.debug }}
+        run: ./buildscript.sh --phase build
+
+      # ── Artifact upload ──────────────────────────────────────────
+      - name: 🔍 Locate output ZIP
+        id: zip
+        run: |
+          case "${{ matrix.device }}" in
+            a73xq)  D=A73  ;; a52sxq) D=A52S ;; m52xq) D=M52 ;;
+          esac
+          f=$(find "$HOME/toolchains/NovaKernel/$D" -name "*.zip" | head -1)
+          echo "path=$f"             >> "$GITHUB_OUTPUT"
+          echo "name=$(basename $f)" >> "$GITHUB_OUTPUT"
+
+      - name: ⬆️ Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name:              ${{ steps.zip.outputs.name }}
+          path:              ${{ steps.zip.outputs.path }}
+          compression-level: 0
+
+      # ── Telegram notification ────────────────────────────────────
+      - name: 📤 Send to Telegram
+        if: success() && fromJSON(inputs.upload_to_telegram) == true
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID:   ${{ secrets.TG_CHAT_ID }}
+        run: |
+          if [[ "${{ inputs.kernelsu }}" == "true" ]]; then TYPE="KSU"; else TYPE="GKI"; fi
+          if [[ "${{ inputs.release_type }}" == "stable" ]]; then LABEL="✅ Stable"; else LABEL="🧪 Beta"; fi
+
+          MSG=""
+          MSG+="<b>🚀 NovaKernel — Build Ready!</b>%0A%0A"
+          MSG+="<b>📱 Device:</b>   <code>${{ matrix.device }}</code>%0A"
+          MSG+="<b>⚙️ Type:</b>     <code>${TYPE}</code>%0A"
+          MSG+="<b>🪝 Hook:</b>     <code>${{ inputs.hook_type }}</code>%0A"
+          MSG+="<b>⬆️ Backport:</b> <code>${{ inputs.backport }}</code>%0A"
+          MSG+="<b>🏷️ Release:</b>  ${LABEL}%0A"
+          MSG+="<b>🔖 Commit:</b>   <a href='https://github.com/${{ github.repository }}/commit/${{ github.sha }}'>${GITHUB_SHA:0:7}</a>%0A"
+          MSG+="<b>🕒 Time:</b>     <i>$(date +'%Y-%m-%d %H:%M')</i>%0A%0A"
+          MSG+="<b>📝 Changelog:</b>%0A"
+          MSG+="<blockquote>${{ inputs.changelog }}</blockquote>%0A%0A"
+          MSG+="🛠 <i>Built with Passion</i>"
+
+          curl -sSf -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${TG_CHAT_ID}" \
+            -F "document=@${{ steps.zip.outputs.path }}" \
+            -F "caption=${MSG}" \
+            -F "parse_mode=HTML"
+
+      # ── Job summary ──────────────────────────────────────────────
+      - name: 📋 Write step summary
+        if: always()
+        run: |
+          if [[ "${{ inputs.kernelsu }}" == "true" ]]; then TYPE="KSU"; else TYPE="GKI"; fi
+          if [[ "${{ inputs.release_type }}" == "stable" ]]; then LABEL="✅ Stable"; else LABEL="🧪 Beta"; fi
+          {
+            echo "## 🚀 NovaKernel — \`${{ matrix.device }}\` [\`${TYPE}\`]"
+            echo ""
+            echo "> **📝 Changelog:** ${{ inputs.changelog }}"
+            echo ""
+            echo "| | |"
+            echo "|:--|:--|"
+            echo "| 📱 Device   | \`${{ matrix.device }}\` |"
+            echo "| ⚙️ Type     | \`${TYPE}\` |"
+            echo "| 🪝 Hook     | \`${{ inputs.hook_type }}\` |"
+            echo "| ⬆️ Backport | \`${{ inputs.backport }}\` |"
+            echo "| 🏷️ Release  | ${LABEL} |"
+            echo "| 📦 Output   | \`${{ steps.zip.outputs.name }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
