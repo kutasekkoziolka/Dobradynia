@@ -28,7 +28,7 @@ on:
         description: "KernelSU branch"
         required: false
         type: choice
-        default: "legacy"
+        default: "stable"
         options: [legacy, main, next, susfs-main, susfs-next, legacy-susfs-v2, custom]
 
       ksu_branch_custom:
