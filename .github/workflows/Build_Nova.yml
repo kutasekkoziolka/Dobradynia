@@ -29,7 +29,7 @@ on:
         required: false
         type: choice
         default: "stable"
-        options: [legacy, main, next, susfs-main, susfs-next, legacy-susfs-v2, custom]
+        options: [legacy, main, next, susfs-main,stable, susfs-next, legacy-susfs-v2, custom]
 
       ksu_branch_custom:
         description: "Custom branch name  (only when ksu_branch = custom)"
