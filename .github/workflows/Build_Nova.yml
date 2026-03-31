@@ -28,8 +28,8 @@ on:
         description: "KernelSU branch"
         required: false
         type: choice
-        default: "stable"
-        options: [legacy, main, next, susfs-main,stable, susfs-next, legacy-susfs-v2, custom]
+        default: "pershoot-susfs-legacy"
+        options: [legacy, main, next, susfs-main,pershoot-susfs-legacy, susfs-next, legacy-susfs-v2, custom]
 
       ksu_branch_custom:
         description: "Custom branch name  (only when ksu_branch = custom)"
