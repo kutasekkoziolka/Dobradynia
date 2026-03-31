@@ -1,4 +1,4 @@
-name: 🔥 NovaKernel — Build
+name: 🔥 JonasKernel — Build
 
 # ──────────────────────────────────────────────────────────────────
 #  Inputs
@@ -28,7 +28,7 @@ on:
         description: "KernelSU branch"
         required: false
         type: choice
-        default: "legacy-susfs-v2"
+        default: "legacy"
         options: [legacy, main, next, susfs-main, susfs-next, legacy-susfs-v2, custom]
 
       ksu_branch_custom:
@@ -278,7 +278,7 @@ jobs:
           case "${{ matrix.device }}" in
             a73xq)  D=A73  ;; a52sxq) D=A52S ;; m52xq) D=M52 ;;
           esac
-          f=$(find "$HOME/toolchains/NovaKernel/$D" -name "*.zip" | head -1)
+          f=$(find "$HOME/toolchains/JonasKernel/$D" -name "*.zip" | head -1)
           echo "path=$f"             >> "$GITHUB_OUTPUT"
           echo "name=$(basename $f)" >> "$GITHUB_OUTPUT"
 
@@ -300,7 +300,7 @@ jobs:
           if [[ "${{ inputs.release_type }}" == "stable" ]]; then LABEL="✅ Stable"; else LABEL="🧪 Beta"; fi
 
           MSG=""
-          MSG+="<b>🚀 NovaKernel — Build Ready!</b>%0A%0A"
+          MSG+="<b>🚀 JonasKernel — Build Ready!</b>%0A%0A"
           MSG+="<b>📱 Device:</b>   <code>${{ matrix.device }}</code>%0A"
           MSG+="<b>⚙️ Type:</b>     <code>${TYPE}</code>%0A"
           MSG+="<b>🪝 Hook:</b>     <code>${{ inputs.hook_type }}</code>%0A"
@@ -325,7 +325,7 @@ jobs:
           if [[ "${{ inputs.kernelsu }}" == "true" ]]; then TYPE="KSU"; else TYPE="GKI"; fi
           if [[ "${{ inputs.release_type }}" == "stable" ]]; then LABEL="✅ Stable"; else LABEL="🧪 Beta"; fi
           {
-            echo "## 🚀 NovaKernel — \`${{ matrix.device }}\` [\`${TYPE}\`]"
+            echo "## 🚀 JonasKernel — \`${{ matrix.device }}\` [\`${TYPE}\`]"
             echo ""
             echo "> **📝 Changelog:** ${{ inputs.changelog }}"
             echo ""
