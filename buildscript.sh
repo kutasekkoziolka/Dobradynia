@@ -28,13 +28,13 @@ declare -A STOCK_IMAGES=(
 )
 
 # ── KernelSU defaults ──────────────────────────────────────────────
-KSU_DEFAULT_REPO="https://github.com/OmarAlsmehan/KernelSU-Next.git"
+KSU_DEFAULT_REPO="https://github.com/maxsteeel/KernelSU-Next.git"
 KSU_DEFAULT_BRANCH="legacy"
 
 # ── Kernel settings ────────────────────────────────────────────────
 KERNEL_BRANCH="android11"
 KMI_GENERATION=2
-KBUILD_USER="@OmarAlsmehan"
+KBUILD_USER="@sopellodu"
 
 # ── KMI additional symbol lists ────────────────────────────────────
 KMI_EXTRA_LISTS=(
@@ -485,7 +485,7 @@ build_kernel() {
     export KMI_SYMBOL_LIST_STRICT_MODE=0 KMI_ENFORCED=0
 
     local comrev; comrev=$(git rev-parse --short HEAD)
-    export LOCALVERSION="-NovaKernel-${BRANCH}-${KMI_GENERATION}-${comrev}-${VARIANT}"
+    export LOCALVERSION="-JonasKernel-${BRANCH}-${KMI_GENERATION}-${comrev}-${VARIANT}"
 
     local defconfig="vendor/lineage-${VARIANT}_defconfig"
 
@@ -541,7 +541,7 @@ build_modules() {
         INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 \
         modules_install 2>&1 | sed 's/^/       /'
 
-    local modout="$TC_DIR/NovaKernel/$DEVICE/$BUILD_TYPE/modules"
+    local modout="$TC_DIR/JonasKernel/$DEVICE/$BUILD_TYPE/modules"
     mkdir -p "$modout"
     find "$OUT_DIR/modules" -name '*.ko' -exec cp '{}' "$modout/" \;
 
@@ -571,7 +571,7 @@ build_modules() {
 stage_artifacts() {
     log_phase "🗂️" "Staging Artifacts"
 
-    local out="$TC_DIR/NovaKernel/$DEVICE"
+    local out="$TC_DIR/JonasKernel/$DEVICE"
     mkdir -p \
         "$out/$BUILD_TYPE/modules" \
         "$out/ZIP/META-INF/com/google/android" \
@@ -633,7 +633,7 @@ rm -rf "$TMPDIR"
 set_progress 1.0
 ui_print " "
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-ui_print "  NovaKernel installed successfully!"
+ui_print "  JonasKernel installed successfully!"
 ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 ui_print " "
 FLASH_EOF
@@ -647,7 +647,7 @@ FLASH_EOF
 gki_repack() {
     log_phase "🖼️" "Image Repack  [$(now)]"
     local T0=$(date +%s)
-    local dest="$TC_DIR/NovaKernel/$DEVICE/$BUILD_TYPE"
+    local dest="$TC_DIR/JonasKernel/$DEVICE/$BUILD_TYPE"
     mkdir -p "$dest"
 
     # ── boot.img ──────────────────────────────────────────────────
@@ -678,7 +678,7 @@ gki_repack() {
             sed -i '2 s/$/ androidboot.selinux=permissive/' header
 
         # Replace DTB
-        rm dtb && cp "$TC_DIR/NovaKernel/$DEVICE/dtb" dtb
+        rm dtb && cp "$TC_DIR/JonasKernel/$DEVICE/dtb" dtb
 
         # Patch fstab: add erofs / ext4 / f2fs entries alongside existing ones
         magiskboot cpio ramdisk.cpio "extract first_stage_ramdisk/fstab.qcom fstab.qcom"
@@ -743,8 +743,8 @@ gki_repack() {
 gen_zip() {
     log_phase "🤐" "Package ZIP  [$(now)]"
     local T0=$(date +%s)
-    local src="$TC_DIR/NovaKernel/$DEVICE/$BUILD_TYPE"
-    local zip_dir="$TC_DIR/NovaKernel/$DEVICE/ZIP"
+    local src="$TC_DIR/JonasKernel/$DEVICE/$BUILD_TYPE"
+    local zip_dir="$TC_DIR/JonasKernel/$DEVICE/ZIP"
 
     wget -q "https://raw.githubusercontent.com/OmarAlsmehan/AnyKernel3/refs/heads/master/banner" \
         -O "$zip_dir/banner"
@@ -755,7 +755,7 @@ gen_zip() {
         ksu_ver=$(grep -oP -- "-DKSU_VERSION=\K[0-9]+" \
             "$OUT_DIR/drivers/kernelsu/.ksu.o.cmd" 2>/dev/null | sed 's/^/-/' || true)
 
-    local zipname="NovaKernel_$(date +%Y%m%d)_${BUILD_TYPE}${ksu_ver}_${VARIANT}.zip"
+    local zipname="JonasKernel_$(date +%Y%m%d)_${BUILD_TYPE}${ksu_ver}_${VARIANT}.zip"
     local zipout="$src/$zipname"
 
     log_step "Creating $zipname..."
