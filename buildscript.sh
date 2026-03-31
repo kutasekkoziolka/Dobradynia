@@ -377,7 +377,7 @@ setup_kernelsu() {
     local branch="${KSU_BRANCH:-$KSU_DEFAULT_BRANCH}"
 
     log_step "Running tiann/KernelSU setup script..."
-    curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+    curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash
     rm -rf KernelSU
 
     log_step "Cloning KernelSU-Next  [branch: $branch]"
