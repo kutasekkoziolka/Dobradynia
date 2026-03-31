@@ -28,8 +28,8 @@ declare -A STOCK_IMAGES=(
 )
 
 # ── KernelSU defaults ──────────────────────────────────────────────
-KSU_DEFAULT_REPO="https://github.com/maxsteeel/KernelSU-Next.git"
-KSU_DEFAULT_BRANCH="legacy"
+KSU_DEFAULT_REPO="https://github.com/KernelSU-Next/KernelSU-Next.git"
+KSU_DEFAULT_BRANCH="stable"
 
 # ── Kernel settings ────────────────────────────────────────────────
 KERNEL_BRANCH="android11"
