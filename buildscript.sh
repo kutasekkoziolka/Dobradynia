@@ -29,7 +29,7 @@ declare -A STOCK_IMAGES=(
 
 # ── KernelSU defaults ──────────────────────────────────────────────
 KSU_DEFAULT_REPO="https://github.com/kutasekkoziolka/KernelSU-Next.git"
-KSU_DEFAULT_BRANCH="pershoot-susfs-legacy"
+KSU_DEFAULT_BRANCH="legacy"
 
 # ── Kernel settings ────────────────────────────────────────────────
 KERNEL_BRANCH="android11"
